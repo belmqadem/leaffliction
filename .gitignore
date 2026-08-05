@@ -8,3 +8,6 @@ venv/
 env/
 
 .DS_Store
+leaves/
+leaves/*
+leaves/images/
