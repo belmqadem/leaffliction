@@ -1,17 +1,24 @@
-from plantcv import plantcv as pcv
-import matplotlib.pyplot as plt
-from utils import display_images
+
+import argparse
+import os
 import sys
 
-if len(sys.argv) != 2:
-    print("Usage: python Transformation.py <image_path>")
-    sys.exit(1)
+import cv2
+import numpy as np
+import matplotlib
+# matplotlib.use("Agg") 
+import matplotlib.pyplot as plt  
 
-image_path = sys.argv[1]
-image, path, filename=pcv.readimage(image_path)
-blurred = pcv.gaussian_blur(img=image, ksize=(5,5), sigma_x=0, sigma_y=None)
-display_images([
-    ("Original", image),
-    ("Gaussian Blur", blurred),
-])
-print(image)
+from plantcv import plantcv as pcv  
+
+def read_image(path):
+    img,_,_=pcv.readimage(path)
+    return img
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("image", help="img path")
+    args = parser.parse_args()
+    print(read_image(args.image))
+
+if __name__ == "__main__":
+    main()
