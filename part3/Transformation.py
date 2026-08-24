@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 
 import argparse
 import os
@@ -6,13 +7,12 @@ import sys
 import cv2
 import numpy as np
 import matplotlib
-matplotlib.use("Agg")  
-import matplotlib.pyplot as plt  
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
-from plantcv import plantcv as pcv  
+from plantcv import plantcv as pcv
 
 pcv.params.debug = None
-
 
 
 def read_image(path):
@@ -21,14 +21,12 @@ def read_image(path):
 
 
 def gaussian_blur(img, ksize=5):
-
     gray = pcv.rgb2gray_lab(rgb_img=img, channel="l")
     blur = pcv.gaussian_blur(img=gray, ksize=(ksize, ksize), sigma_x=0)
     return blur
 
 
-def build_mask(img, threshold=115, fill_size=200):
-
+def build_mask(img, threshold=115, fill_size=200, min_foreground_px=50):
     gray = pcv.rgb2gray_lab(rgb_img=img, channel="l")
     thresh = pcv.threshold.binary(
         gray_img=gray, threshold=threshold, object_type="dark"
@@ -40,9 +38,26 @@ def build_mask(img, threshold=115, fill_size=200):
         mask = thresh
     else:
         mask = thresh if np.sum(thresh > 0) < np.sum(inv > 0) else inv
+
+    if np.sum(mask > 0) < min_foreground_px and gray.std() > 1e-6:
+        try:
+            otsu = pcv.threshold.otsu(gray_img=gray, object_type="dark")
+            otsu_inv = pcv.invert(gray_img=otsu)
+            mask = (
+                otsu
+                if np.sum(otsu > 0) < np.sum(otsu_inv > 0)
+                else otsu_inv
+            )
+        except Exception:
+            pass
+
     mask = pcv.fill(bin_img=mask, size=fill_size)
     mask = pcv.dilate(gray_img=mask, ksize=2, i=1)
     mask = pcv.erode(gray_img=mask, ksize=2, i=1)
+
+    if np.sum(mask > 0) < min_foreground_px:
+        mask = np.full(gray.shape, 255, dtype=np.uint8)
+
     return mask
 
 
@@ -51,7 +66,6 @@ def apply_mask(img, mask):
 
 
 def roi_objects(img, mask):
-
     h, w = mask.shape[:2]
     roi = pcv.roi.rectangle(img=img, x=0, y=0, h=h, w=w)
     kept_mask = pcv.roi.filter(mask=mask, roi=roi, roi_type="partial")
@@ -78,15 +92,17 @@ def pseudolandmarks(img, mask):
             x, y = int(p[0][0]), int(p[0][1])
             cv2.circle(vis, (x, y), 3, color, -1)
 
-    _draw(top, (255, 0, 255))     
-    _draw(bottom, (255, 0, 0))    
+    _draw(top, (255, 0, 255))
+    _draw(bottom, (255, 0, 0))
     _draw(center_v, (0, 128, 255))
     return vis
 
 
 def color_histogram_figure(img, mask, save_path=None):
-
-    _ = pcv.analyze.color(rgb_img=img, labeled_mask=mask, colorspaces="all")
+    try:
+        _ = pcv.analyze.color(rgb_img=img, labeled_mask=mask, colorspaces="all")
+    except Exception as exc:
+        raise RuntimeError(f"color analysis failed: {exc}") from exc
     hist_data = pcv.outputs.observations["default_1"]
 
     fig, ax = plt.subplots(figsize=(7, 5))
@@ -119,7 +135,6 @@ def color_histogram_figure(img, mask, save_path=None):
 
 
 def compute_all(img):
-
     results = {}
     results["Original"] = img
 
@@ -138,12 +153,11 @@ def compute_all(img):
     landmarks_img = pseudolandmarks(img, kept_mask)
     results["Pseudolandmarks"] = landmarks_img
 
-    results["_mask_for_hist"] = kept_mask  
+    results["_mask_for_hist"] = kept_mask
     return results
 
 
 def transform_for_model(img):
-
     mask = build_mask(img)
     masked = apply_mask(img, mask)
     return cv2.resize(masked, (128, 128))
@@ -178,8 +192,11 @@ def show_single_image(path):
     print(f"Saved transformation grid to {grid_path}")
 
     hist_path = os.path.join(out_dir, "transformation_histogram.png")
-    color_histogram_figure(img, mask_for_hist, save_path=hist_path)
-    print(f"Saved color histogram to {hist_path}")
+    try:
+        color_histogram_figure(img, mask_for_hist, save_path=hist_path)
+        print(f"Saved color histogram to {hist_path}")
+    except RuntimeError as exc:
+        print(f"Color histogram skipped: {exc}")
 
 
 def save_batch(src_dir, dst_dir, flags):
@@ -193,36 +210,48 @@ def save_batch(src_dir, dst_dir, flags):
 
     do_all = not any(flags.values())
 
+    skipped = []
     for fname in files:
         path = os.path.join(src_dir, fname)
         base, ext = os.path.splitext(fname)
-        img = read_image(path)
-        results = compute_all(img)
-        mask_for_hist = results.pop("_mask_for_hist")
+        try:
+            img = read_image(path)
+            results = compute_all(img)
+            mask_for_hist = results.pop("_mask_for_hist")
 
-        wanted = {
-            "blur": "Gaussian_blur",
-            "mask": "Mask",
-            "roi": "Roi_objects",
-            "analyze": "Analyze_object",
-            "landmarks": "Pseudolandmarks",
-        }
-        for flag_name, result_key in wanted.items():
-            if do_all or flags.get(flag_name):
-                out_img = results[result_key]
-                out_path = os.path.join(dst_dir, f"{base}_{result_key}{ext}")
-                cv2.imwrite(out_path, out_img)
+            wanted = {
+                "blur": "Gaussian_blur",
+                "mask": "Mask",
+                "roi": "Roi_objects",
+                "analyze": "Analyze_object",
+                "landmarks": "Pseudolandmarks",
+            }
+            for flag_name, result_key in wanted.items():
+                if do_all or flags.get(flag_name):
+                    out_img = results[result_key]
+                    out_path = os.path.join(
+                        dst_dir, f"{base}_{result_key}{ext}"
+                    )
+                    cv2.imwrite(out_path, out_img)
 
-        if do_all or flags.get("hist"):
-            hist_path = os.path.join(dst_dir, f"{base}_histogram.png")
-            fig = color_histogram_figure(img, mask_for_hist, save_path=hist_path)
-            plt.close(fig)
+            if do_all or flags.get("hist"):
+                try:
+                    hist_path = os.path.join(dst_dir, f"{base}_histogram.png")
+                    fig = color_histogram_figure(
+                        img, mask_for_hist, save_path=hist_path
+                    )
+                    plt.close(fig)
+                except RuntimeError as hist_exc:
+                    print(f"  (histogram skipped for {fname}: {hist_exc})")
 
-        print(f"Processed {fname}")
+            print(f"Processed {fname}")
+        except Exception as exc:
+            skipped.append(fname)
+            print(f"Skipped {fname}: {exc}")
 
     print(f"Done. Transformations saved in {dst_dir}")
-
-
+    if skipped:
+        print(f"{len(skipped)} image(s) skipped due to errors: {skipped}")
 
 
 def main():
