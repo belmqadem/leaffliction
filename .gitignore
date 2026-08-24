@@ -11,3 +11,6 @@ env/
 leaves/
 leaves/*
 leaves/images/
+dst_directory/*
+dst_directory/
+dst_directory
