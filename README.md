@@ -1,6 +1,6 @@
-# 🌿 Leaffliction
+# 🌿 Leaffliction — Part 3: Image Transformation
 
-An innovative computer vision project that analyzes leaf images to extract visual features and support plant disease recognition.
+A computer vision pipeline that extracts visual features from leaf images to support plant disease recognition, built with PlantCV.
 
 ---
 
@@ -12,6 +12,12 @@ An innovative computer vision project that analyzes leaf images to extract visua
 - [Project Progress](#-project-progress)
 - [Reading Images with PlantCV](#-reading-images-with-plantcv)
 - [Gaussian Blur](#-gaussian-blur)
+- [Mask Generation](#-mask-generation)
+- [ROI Objects](#-roi-objects)
+- [Analyze Object](#-analyze-object)
+- [Pseudolandmarks](#-pseudolandmarks)
+- [Color Histogram](#-color-histogram)
+- [Usage](#-usage)
 
 ---
 
@@ -69,8 +75,6 @@ It contains hundreds of image processing algorithms including:
 - Image transformations
 
 It is designed for many Computer Vision applications beyond plant analysis.
-
----
 
 ## PlantCV
 
@@ -155,14 +159,14 @@ Example of a 5×5 Gaussian kernel:
 1   4   6   4   1
 ```
 
-In this project, Gaussian Blur is implemented using PlantCV:
+Implemented with PlantCV:
 
 ```python
+gray = pcv.rgb2gray_lab(rgb_img=image, channel="l")
 blurred = pcv.gaussian_blur(
-    img=image,
+    img=gray,
     ksize=(5, 5),
-    sigma_x=0,
-    sigma_y=None
+    sigma_x=0
 )
 ```
 
@@ -170,12 +174,113 @@ The blurred image removes small variations while preserving the overall structur
 
 ---
 
-# 🔜 Next Steps
+# 🎭 Mask Generation
+
+Once the image is smoothed, the leaf needs to be separated from the background. This is done through **binary thresholding**: every pixel above (or below) a chosen intensity becomes white (foreground), everything else becomes black (background).
+
+```python
+gray = pcv.rgb2gray_lab(rgb_img=image, channel="l")
+thresh = pcv.threshold.binary(
+    gray_img=gray,
+    threshold=115,
+    object_type="dark"
+)
+mask = pcv.fill(bin_img=thresh, size=200)
+```
+
+- `pcv.threshold.binary` converts the grayscale image into a black/white mask.
+- `pcv.fill` removes small noisy specks below a given pixel-area threshold, so only the actual leaf shape survives.
+
+The result is a clean binary mask isolating the leaf from its background, which every following step depends on.
+
+---
+
+# 🟩 ROI Objects
+
+A **Region Of Interest (ROI)** defines the area of the image we actually care about. PlantCV compares the mask against the ROI and keeps only the objects that fall inside it, discarding background noise outside the region.
+
+```python
+roi = pcv.roi.rectangle(img=image, x=0, y=0, h=height, w=width)
+kept_mask = pcv.roi.filter(mask=mask, roi=roi, roi_type="partial")
+```
+
+This step guarantees that only the leaf (and not stray artifacts elsewhere in the frame) is passed on to the analysis steps.
+
+---
+
+# 📐 Analyze Object
+
+`pcv.analyze.size` computes shape statistics on the segmented leaf — area, perimeter, convex hull, height/width, and more — and draws an overlay (outline + centroid + bounding lines) directly on the image.
+
+```python
+shape_image = pcv.analyze.size(
+    img=image,
+    labeled_mask=kept_mask,
+    n_labels=1
+)
+```
+
+These measurements are the kind of quantitative shape features that can later distinguish a diseased leaf (irregular, spotted edges) from a healthy one.
+
+---
+
+# 📍 Pseudolandmarks
+
+Pseudolandmarks are evenly-spaced reference points placed along the leaf's top, bottom, and center vertical axis. They give a consistent, comparable set of coordinates across every leaf image regardless of size or orientation.
+
+```python
+top, bottom, center_v = pcv.homology.x_axis_pseudolandmarks(
+    img=image,
+    mask=kept_mask,
+    label="default"
+)
+```
+
+These points are useful for shape comparison and alignment between leaves of the same or different classes.
+
+---
+
+# 🎨 Color Histogram
+
+The color histogram shows how pixel intensities are distributed across multiple color spaces (RGB, HSV, LAB) for the segmented leaf.
+
+```python
+pcv.analyze.color(
+    rgb_img=image,
+    labeled_mask=kept_mask,
+    colorspaces="all"
+)
+```
+
+Each channel — red, green, blue, hue, saturation, value, lightness, green-magenta, blue-yellow — is plotted as a percentage of pixels at each intensity value (0–255). Differences in these distributions (e.g. a spike in brown/yellow tones) are strong signals for disease detection.
+
+---
+
+# ✅ Project Progress
 
 - [x] Read image
 - [x] Gaussian Blur
-- [ ] Mask Generation
-- [ ] ROI Extraction
-- [ ] Analyze Object
-- [ ] Pseudolandmarks
-- [ ] Color Histogram
+- [x] Mask Generation
+- [x] ROI Extraction
+- [x] Analyze Object
+- [x] Pseudolandmarks
+- [x] Color Histogram
+
+---
+
+# 🛠️ Usage
+
+Single image (displays all transformations + saves the grid and histogram next to the image):
+
+```bash
+python3 main.py path/to/image.JPG
+```
+
+Batch mode (processes every image in a source directory, saves outputs into a destination directory):
+
+```bash
+python3 Transformation.py -src Apple/apple_healthy/ -dst dst_directory
+python3 Transformation.py -src Apple/apple_healthy/ -dst dst_directory -mask -blur
+```
+
+If no transformation flags are passed in batch mode, all transformations are generated by default.
