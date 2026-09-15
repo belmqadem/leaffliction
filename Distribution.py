@@ -26,12 +26,18 @@ def distribute(path_str: str) -> None:
         raise NotADirectoryError(f"{path} is not a directory")
     plant_type = path.name
     counts = count_images_in_each_class(path)
+    if not any(counts.values()):
+        raise ValueError(f"No images found in class subdirectories of {path}")
 
-    fig, (ax_pie, ax_bar) = plt.subplots(1, 2, figsize={12, 5})
+    fig, (ax_pie, ax_bar) = plt.subplots(1, 2, figsize=(12, 5))
     fig.suptitle(f"{plant_type} class distribution")
-    ax_pie.pie(counts.values(), labels=counts.keys())
+    ax_pie.pie(
+        counts.values(),
+        labels=counts.keys(),
+        autopct=lambda pct: f"{round(pct * sum(counts.values()) / 100)}",
+    )
     ax_bar.bar(counts.keys(), counts.values())
-    ax_bar.set_xticklabels(counts.keys(), rotation=45, ha="right")
+    plt.setp(ax_bar.get_xticklabels(), rotation=45, ha="right")
     ax_bar.set_ylabel("Number of images")
     plt.tight_layout()
     plt.show()
