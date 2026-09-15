@@ -10,3 +10,9 @@ env/
 .DS_Store
 
 images/
+leaves/
+leaves/*
+leaves/images/
+dst_directory/*
+dst_directory/
+dst_directory
