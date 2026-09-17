@@ -17,8 +17,8 @@ def is_original_image(f: Path) -> bool:
     return f.is_file() and f.suffix in IMG_EXTS and not AUGMENT_STEM_RE.search(f.stem)
 
 
-def balance_dataset(root: Path, seed: int = 42) -> None:
-    root = Path(root)
+def balance_dataset(root_str: str, seed: int = 42) -> None:
+    root = Path(root_str)
     if not root.exists():
         raise FileNotFoundError(f"{root} does not exist")
     if not root.is_dir():
