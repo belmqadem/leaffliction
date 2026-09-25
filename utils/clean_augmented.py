@@ -1,13 +1,10 @@
-import re
+#!/usr/bin/env python3
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from Augmentation import transform_registry
-
-# matches "_Flip", "_Flip2", "_Rotate", "_Rotate3", etc. at the end of the stem
-AUGMENT_STEM_RE = re.compile(rf"_({'|'.join(transform_registry)})\d*$")
+from balance_dataset import AUGMENT_STEM_RE
 
 
 def is_augmented(path: Path) -> bool:
@@ -31,7 +28,7 @@ def clean(path_str: str) -> int:
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python3 utils/clean_augmented.py <directory>")
+        print("Usage: ./utils/clean_augmented.py <path_to_dataset_root>")
         sys.exit(1)
     try:
         removed = clean(sys.argv[1])

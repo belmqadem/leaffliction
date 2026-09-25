@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def flip_img(path: Path, tag: str = "Flip"):
@@ -104,9 +105,24 @@ def augment(path_str: str):
     if not path.exists():
         raise FileNotFoundError(f"{path} does not exist")
     if not path.is_file():
-        raise ValueError(f"{path} is not a file")
-    for transform in transform_registry.values():
-        transform(path)
+        raise IsADirectoryError(f"{path} is a directory, not a file.")
+
+    original = cv2.imread(str(path))
+    if original is None:
+        raise ValueError(f"Could not read image: {path}")
+
+    images = [("Original", original)]
+    for name, transform in transform_registry.items():
+        images.append((name, transform(path)))
+
+    fig, axes = plt.subplots(1, len(images), figsize=(3 * len(images), 3.5))
+    fig.suptitle(str(path))
+    for ax, (name, img) in zip(axes, images):
+        ax.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        ax.set_title(name)
+        ax.axis("off")
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -115,6 +131,6 @@ if __name__ == "__main__":
         sys.exit(1)
     try:
         augment(sys.argv[1])
-    except (FileNotFoundError, ValueError) as e:
+    except (FileNotFoundError, IsADirectoryError, ValueError) as e:
         print(f"Error: {e}")
         sys.exit(1)
