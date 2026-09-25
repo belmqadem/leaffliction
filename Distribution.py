@@ -32,11 +32,7 @@ def distribute(path_str: str) -> None:
 
     fig, (ax_pie, ax_bar) = plt.subplots(1, 2, figsize=(12, 5))
     fig.suptitle(f"{plant_type} class distribution")
-    ax_pie.pie(
-        counts.values(),
-        labels=counts.keys(),
-        autopct=lambda pct: f"{round(pct * sum(counts.values()) / 100)}",
-    )
+    ax_pie.pie(counts.values(), labels=counts.keys(), autopct="%1.1f%%")
     ax_bar.bar(counts.keys(), counts.values())
     plt.setp(ax_bar.get_xticklabels(), rotation=45, ha="right")
     ax_bar.set_ylabel("Number of images")
