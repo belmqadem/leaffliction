@@ -1,14 +1,16 @@
+#!/usr/bin/env python3
 import random
 import itertools
 import re
+import shutil
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from Augmentation import transform_registry
+from Distribution import IMG_EXTS
 
-IMG_EXTS = {".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"}
 # matches "_Flip", "_Flip2", "_Rotate", "_Rotate3", etc. at the end of the stem
 AUGMENT_STEM_RE = re.compile(rf"_({'|'.join(transform_registry)})\d*$")
 
@@ -23,18 +25,34 @@ def balance_dataset(root_str: str, seed: int = 42) -> None:
         raise FileNotFoundError(f"{root} does not exist")
     if not root.is_dir():
         raise NotADirectoryError(f"{root} is not a directory")
+
     random.seed(seed)
 
     class_dirs = sorted([d for d in root.iterdir() if d.is_dir()])
     if not class_dirs:
         raise ValueError(f"No class subdirectories found in {root}")
 
+    augmented_root = root.parent / "augmented_directory" / root.name
+    augmented_root.mkdir(parents=True, exist_ok=True)
+    print(f"Building balanced dataset in {augmented_root}")
+
+    copy_dirs = []
+    for class_dir in class_dirs:
+        dst_dir = augmented_root / class_dir.name
+        dst_dir.mkdir(exist_ok=True)
+        for f in class_dir.iterdir():
+            if is_original_image(f):
+                dst = dst_dir / f.name
+                if not dst.exists():
+                    shutil.copy2(f, dst)
+        copy_dirs.append(dst_dir)
+
     class_originals = {
-        d: sorted([f for f in d.iterdir() if is_original_image(f)]) for d in class_dirs
+        d: sorted([f for f in d.iterdir() if is_original_image(f)]) for d in copy_dirs
     }
     class_totals = {
         d: sum(1 for f in d.iterdir() if f.is_file() and f.suffix in IMG_EXTS)
-        for d in class_dirs
+        for d in copy_dirs
     }
 
     counts = {d: len(files) for d, files in class_originals.items()}
@@ -89,7 +107,7 @@ def balance_dataset(root_str: str, seed: int = 42) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python3 utils/dataset.py <path_to_dataset_root>")
+        print("Usage: ./utils/balance_dataset.py <path_to_dataset_root>")
         sys.exit(1)
     try:
         balance_dataset(sys.argv[1])
