@@ -16,3 +16,4 @@ leaves/images/
 dst_directory/*
 dst_directory/
 dst_directory
+test.py
