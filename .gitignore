@@ -10,6 +10,7 @@ env/
 .DS_Store
 
 images/
+images/*
 leaves/
 leaves/*
 leaves/images/
