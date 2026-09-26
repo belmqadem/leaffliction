@@ -18,3 +18,7 @@ dst_directory/*
 dst_directory/
 dst_directory
 test.py
+learnings.zip
+learnings/
+learnings/*
+test.py
