@@ -101,13 +101,25 @@ def make_zip(out_dir, zip_path):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Leaffliction — train a leaf-disease classifier (Part 4, sklearn)."
+        description=(
+            "Leaffliction — train a leaf-disease classifier (Part 4, sklearn)."
+        )
     )
-    parser.add_argument("directory", help="Root directory containing one subdir per class.")
-    parser.add_argument("-out", dest="out_dir", default="learnings",
-                         help="Where to save the model + dataset copy (default: learnings/)")
-    parser.add_argument("-workers", type=int, default=max(cpu_count() - 1, 1),
-                         help="Parallel workers for feature extraction.")
+    parser.add_argument(
+        "directory", help="Root directory containing one subdir per class."
+    )
+    parser.add_argument(
+        "-out",
+        dest="out_dir",
+        default="learnings",
+        help="Where to save the model + dataset copy (default: learnings/)",
+    )
+    parser.add_argument(
+        "-workers",
+        type=int,
+        default=max(cpu_count() - 1, 1),
+        help="Parallel workers for feature extraction.",
+    )
     args = parser.parse_args()
 
     random.seed(SEED)
@@ -115,19 +127,28 @@ def main():
 
     class_dirs = list_class_dirs(args.directory)
     if not class_dirs:
-        print(f"No class subdirectories found in {args.directory}", file=sys.stderr)
+        print(
+            f"No class subdirectories found in {args.directory}",
+            file=sys.stderr,
+        )
         sys.exit(1)
     print(f"Found {len(class_dirs)} classes: {class_dirs}")
 
     samples = collect_images(args.directory, class_dirs)
-    print(f"Found {len(samples)} images total. Extracting features with {args.workers} worker(s)...")
+    print(
+        f"Found {len(samples)} images total. Extracting features with "
+        f"{args.workers} worker(s)..."
+    )
 
     X, labels = build_dataset(samples, args.workers)
     print(f"Extracted features for {len(X)} images.")
 
     n_val = max(int(len(X) * VAL_SPLIT), MIN_VAL_IMAGES)
     if n_val >= len(X):
-        print("Not enough images to reach the minimum validation set size.", file=sys.stderr)
+        print(
+            "Not enough images to reach the minimum validation set size.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     X_train, X_val, y_train, y_val = train_test_split(

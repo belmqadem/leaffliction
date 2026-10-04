@@ -7,13 +7,14 @@ import pickle
 import sys
 
 import cv2
-import numpy as np
 import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
 
 from Transformation import build_mask, apply_mask
 from train import extract_features
+
+matplotlib.use("Agg")
 
 
 def load_model(learnings_dir):
@@ -26,11 +27,17 @@ def load_model(learnings_dir):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Leaffliction — predict a leaf's disease class (Part 4, sklearn)."
+        description=(
+            "Leaffliction — predict a leaf's disease class (Part 4, sklearn)."
+        )
     )
     parser.add_argument("image", help="Path to a leaf image.")
-    parser.add_argument("-learnings", dest="learnings_dir", default="learnings",
-                         help="Directory produced by train.py (default: learnings/)")
+    parser.add_argument(
+        "-learnings",
+        dest="learnings_dir",
+        default="learnings",
+        help="Directory produced by train.py (default: learnings/)",
+    )
     args = parser.parse_args()
 
     clf, scaler, class_names = load_model(args.learnings_dir)

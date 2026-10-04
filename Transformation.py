@@ -6,8 +6,8 @@ import sys
 
 import cv2
 import numpy as np
-import matplotlib
-matplotlib.use("Agg")
+# import matplotlib
+# matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from plantcv import plantcv as pcv
@@ -100,7 +100,9 @@ def pseudolandmarks(img, mask):
 
 def color_histogram_figure(img, mask, save_path=None):
     try:
-        _ = pcv.analyze.color(rgb_img=img, labeled_mask=mask, colorspaces="all")
+        _ = pcv.analyze.color(
+            rgb_img=img, labeled_mask=mask, colorspaces="all"
+        )
     except Exception as exc:
         raise RuntimeError(f"color analysis failed: {exc}") from exc
     hist_data = pcv.outputs.observations["default_1"]
@@ -170,33 +172,85 @@ def show_single_image(path):
 
     names = list(results.keys())
     n = len(names)
+
     cols = 3
     rows = (n + cols - 1) // cols
 
-    fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows))
+    fig, axes = plt.subplots(
+        rows,
+        cols,
+        figsize=(5 * cols, 4 * rows)
+    )
+
     axes = np.array(axes).reshape(-1)
+
     for ax, name in zip(axes, names):
         im = results[name]
-        im_rgb = cv2.cvtColor(im, cv2.COLOR_BGR2RGB) if im.ndim == 3 else im
+
+        im_rgb = (
+            cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+            if im.ndim == 3
+            else im
+        )
+
         cmap = None if im.ndim == 3 else "gray"
+
         ax.imshow(im_rgb, cmap=cmap)
         ax.set_title(name.replace("_", " "))
         ax.axis("off")
+
     for ax in axes[n:]:
         ax.axis("off")
+
     fig.tight_layout()
 
-    out_dir = os.path.dirname(os.path.abspath(path)) or "."
-    grid_path = os.path.join(out_dir, "transformation_grid.png")
-    fig.savefig(grid_path, dpi=120)
-    print(f"Saved transformation grid to {grid_path}")
+    # DISPLAY the transformations
+    plt.show()
 
-    hist_path = os.path.join(out_dir, "transformation_histogram.png")
+    # Display the color histogram
     try:
-        color_histogram_figure(img, mask_for_hist, save_path=hist_path)
-        print(f"Saved color histogram to {hist_path}")
+        color_histogram_figure(
+            img,
+            mask_for_hist
+        )
+        plt.show()
     except RuntimeError as exc:
         print(f"Color histogram skipped: {exc}")
+
+# def show_single_image(path):
+#     img = read_image(path)
+#     results = compute_all(img)
+#     mask_for_hist = results.pop("_mask_for_hist")
+
+#     names = list(results.keys())
+#     n = len(names)
+#     cols = 3
+#     rows = (n + cols - 1) // cols
+
+#     fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows))
+#     axes = np.array(axes).reshape(-1)
+#     for ax, name in zip(axes, names):
+#         im = results[name]
+#         im_rgb = cv2.cvtColor(im, cv2.COLOR_BGR2RGB) if im.ndim == 3 else im
+#         cmap = None if im.ndim == 3 else "gray"
+#         ax.imshow(im_rgb, cmap=cmap)
+#         ax.set_title(name.replace("_", " "))
+#         ax.axis("off")
+#     for ax in axes[n:]:
+#         ax.axis("off")
+#     fig.tight_layout()
+
+#     out_dir = os.path.dirname(os.path.abspath(path)) or "."
+#     grid_path = os.path.join(out_dir, "transformation_grid.png")
+#     fig.savefig(grid_path, dpi=120)
+#     print(f"Saved transformation grid to {grid_path}")
+
+#     hist_path = os.path.join(out_dir, "transformation_histogram.png")
+#     try:
+#         color_histogram_figure(img, mask_for_hist, save_path=hist_path)
+#         print(f"Saved color histogram to {hist_path}")
+#     except RuntimeError as exc:
+#         print(f"Color histogram skipped: {exc}")
 
 
 def save_batch(src_dir, dst_dir, flags):
@@ -261,18 +315,28 @@ def main():
     parser.add_argument(
         "image", nargs="?", help="Path to a single image (display mode)."
     )
-    parser.add_argument("-src", dest="src", help="Source directory (batch mode).")
-    parser.add_argument("-dst", dest="dst", help="Destination directory (batch mode).")
-    parser.add_argument("-blur", action="store_true", help="Include Gaussian blur.")
+    parser.add_argument(
+        "-src", dest="src", help="Source directory (batch mode)."
+    )
+    parser.add_argument(
+        "-dst", dest="dst", help="Destination directory (batch mode)."
+    )
+    parser.add_argument(
+        "-blur", action="store_true", help="Include Gaussian blur."
+    )
     parser.add_argument("-mask", action="store_true", help="Include mask.")
-    parser.add_argument("-roi", action="store_true", help="Include ROI objects.")
+    parser.add_argument(
+        "-roi", action="store_true", help="Include ROI objects."
+    )
     parser.add_argument(
         "-analyze", action="store_true", help="Include analyze object."
     )
     parser.add_argument(
         "-landmarks", action="store_true", help="Include pseudolandmarks."
     )
-    parser.add_argument("-hist", action="store_true", help="Include color histogram.")
+    parser.add_argument(
+        "-hist", action="store_true", help="Include color histogram."
+    )
 
     args = parser.parse_args()
 
