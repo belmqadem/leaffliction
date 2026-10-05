@@ -97,7 +97,7 @@ def make_zip(out_dir, zip_path):
                 zf.write(full, arc)
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description=(
             "Leaffliction — train a leaf-disease classifier (Part 4, sklearn)."
@@ -118,7 +118,17 @@ def main():
         default=max(cpu_count() - 1, 1),
         help="Parallel workers for feature extraction.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+
+    if args.workers < 1:
+        parser.error("-workers must be at least 1")
+    out_dir = os.path.normpath(args.out_dir)
+    data_abs = os.path.abspath(args.directory)
+    out_abs = os.path.abspath(out_dir)
+    if out_abs == data_abs or out_abs.startswith(data_abs + os.sep):
+        parser.error("-out must not be the dataset directory or inside it")
+    if out_abs == os.path.abspath(os.curdir):
+        parser.error("-out must be a dedicated directory, not '.'")
 
     random.seed(SEED)
     np.random.seed(SEED)
@@ -166,29 +176,25 @@ def main():
     if val_acc < 0.90:
         print("WARNING: validation accuracy is below the required 90%.")
 
-    os.makedirs(args.out_dir, exist_ok=True)
-    with open(os.path.join(args.out_dir, "model.pkl"), "wb") as f:
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, "model.pkl"), "wb") as f:
         pickle.dump({"model": clf, "scaler": scaler}, f)
-    with open(os.path.join(args.out_dir, "class_names.json"), "w") as f:
+    with open(os.path.join(out_dir, "class_names.json"), "w") as f:
         json.dump(sorted(set(labels)), f)
-    with open(os.path.join(args.out_dir, "metrics.json"), "w") as f:
+    with open(os.path.join(out_dir, "metrics.json"), "w") as f:
         json.dump({"val_accuracy": val_acc, "val_size": len(X_val)}, f)
 
-    dataset_copy = os.path.join(args.out_dir, "dataset")
+    dataset_copy = os.path.join(out_dir, "dataset")
     if os.path.exists(dataset_copy):
         shutil.rmtree(dataset_copy)
     shutil.copytree(args.directory, dataset_copy)
 
-    zip_path = f"{args.out_dir}.zip"
-    make_zip(args.out_dir, zip_path)
-    print(f"Saved model + dataset to {args.out_dir}/, zipped as {zip_path}")
+    zip_path = f"{out_dir}.zip"
+    make_zip(out_dir, zip_path)
+    print(f"Saved model + dataset to {out_dir}/, zipped as {zip_path}")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: ./train.py <path_to_dataset_root> \
-              -out <output_directory> -workers <workers_number> ")
-        sys.exit(1)
     try:
         main()
     except (FileNotFoundError, NotADirectoryError, ValueError) as e:

@@ -222,9 +222,17 @@ def show_single_image(path):
 
 
 def save_batch(src_dir, dst_dir, flags):
+    src = Path(src_dir)
+    if not src.exists():
+        raise FileNotFoundError(f"{src_dir} does not exist")
+    if not src.is_dir():
+        raise NotADirectoryError(f"{src_dir} is not a directory")
+    if src.resolve() == Path(dst_dir).resolve():
+        raise ValueError("-src and -dst must be different directories")
+
     os.makedirs(dst_dir, exist_ok=True)
-    exts = (".jpg", ".jpeg", ".png", ".JPG", ".JPEG", ".PNG")
-    files = [f for f in os.listdir(src_dir) if f.endswith(exts)]
+    exts = (".jpg", ".jpeg", ".png")
+    files = sorted(f for f in os.listdir(src_dir) if f.lower().endswith(exts))
 
     if not files:
         print(f"No images found in {src_dir}")
@@ -276,7 +284,7 @@ def save_batch(src_dir, dst_dir, flags):
         print(f"{len(skipped)} image(s) skipped due to errors: {skipped}")
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Leaffliction — image transformation tool (Part 3)."
     )
@@ -306,25 +314,38 @@ def main():
         "-hist", action="store_true", help="Include color histogram."
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+
+    flags = {
+        "blur": args.blur,
+        "mask": args.mask,
+        "roi": args.roi,
+        "analyze": args.analyze,
+        "landmarks": args.landmarks,
+        "hist": args.hist,
+    }
+    batch_mode = bool(args.src or args.dst)
+    if batch_mode:
+        if not (args.src and args.dst):
+            parser.error("-src and -dst must be used together")
+        if args.image:
+            parser.error("an image path cannot be combined with -src/-dst")
+    elif not args.image:
+        parser.print_help()
+        sys.exit(1)
+    elif any(flags.values()):
+        print(
+            "Warning: transformation flags are ignored in single-image "
+            "mode; use -src/-dst to save them.",
+            file=sys.stderr,
+        )
 
     try:
-        if args.src and args.dst:
-            flags = {
-                "blur": args.blur,
-                "mask": args.mask,
-                "roi": args.roi,
-                "analyze": args.analyze,
-                "landmarks": args.landmarks,
-                "hist": args.hist,
-            }
+        if batch_mode:
             save_batch(args.src, args.dst, flags)
-        elif args.image:
-            show_single_image(args.image)
         else:
-            parser.print_help()
-            sys.exit(1)
-    except (FileNotFoundError, IsADirectoryError, ValueError) as e:
+            show_single_image(args.image)
+    except (OSError, ValueError) as e:
         print(f"Error: {e}")
         sys.exit(1)
 

@@ -24,7 +24,7 @@ def load_model(learnings_dir):
     return bundle["model"], bundle["scaler"], class_names
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description=("Leaffliction — predict a leaf's disease \
                      class (Part 4, sklearn).")
@@ -36,13 +36,21 @@ def main():
         default="learnings",
         help="Directory produced by train.py (default: learnings/)",
     )
-    args = parser.parse_args()
-
-    clf, scaler, _ = load_model(args.learnings_dir)
+    args = parser.parse_args(argv)
 
     original = cv2.imread(args.image)
     if original is None:
         print(f"Could not read image: {args.image}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        clf, scaler, _ = load_model(args.learnings_dir)
+    except (OSError, pickle.UnpicklingError, json.JSONDecodeError,
+            KeyError, EOFError) as e:
+        print(
+            f"Error: could not load model from {args.learnings_dir}: {e}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     mask = build_mask(original)
