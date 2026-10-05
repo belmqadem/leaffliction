@@ -1,286 +1,316 @@
-# 🌿 Leaffliction — Part 3: Image Transformation
-
-A computer vision pipeline that extracts visual features from leaf images to support plant disease recognition, built with PlantCV.
-
----
-
-# 📖 Table of Contents
-
-- [What is Computer Vision?](#-what-is-computer-vision)
-- [AI vs Machine Learning vs Computer Vision](#-ai-vs-machine-learning-vs-computer-vision)
-- [OpenCV vs PlantCV](#-opencv-vs-plantcv)
-- [Project Progress](#-project-progress)
-- [Reading Images with PlantCV](#-reading-images-with-plantcv)
-- [Gaussian Blur](#-gaussian-blur)
-- [Mask Generation](#-mask-generation)
-- [ROI Objects](#-roi-objects)
-- [Analyze Object](#-analyze-object)
-- [Pseudolandmarks](#-pseudolandmarks)
-- [Color Histogram](#-color-histogram)
-- [Usage](#-usage)
-
----
-
-# 🖥️ What is Computer Vision?
-
-Computer Vision (CV) is a field of Artificial Intelligence that enables computers to understand and analyze images or videos.
-
-Instead of humans looking at a picture, the computer receives an image represented as a NumPy array of pixels. Computer vision algorithms process these pixels to extract meaningful information such as colors, shapes, textures, edges, and objects.
-
-In this project, Computer Vision is used to analyze leaf images before extracting features that can later help distinguish healthy leaves from diseased ones.
-
----
-
-# 🤖 AI vs Machine Learning vs Computer Vision
-
-Artificial Intelligence (AI)
-- The broad field of creating systems capable of performing tasks that normally require human intelligence.
-
-Machine Learning (ML)
-- A subset of AI where computers learn patterns from data instead of being explicitly programmed.
-
-Computer Vision (CV)
-- A branch of AI focused on understanding images and videos.
-
-Relationship:
-
-```
-Artificial Intelligence
-│
-├── Machine Learning
-│
-├── Natural Language Processing
-│
-└── Computer Vision
-```
-
-Machine Learning can be used inside Computer Vision, but many Computer Vision techniques (such as Gaussian Blur, thresholding, morphology, etc.) are classical image processing algorithms and do not require machine learning.
-
----
-
-# 🌱 OpenCV vs PlantCV
-
-## OpenCV
-
-OpenCV is a general-purpose Computer Vision library.
-
-It contains hundreds of image processing algorithms including:
-
-- Image filtering
-- Edge detection
-- Feature detection
-- Object detection
-- Video processing
-- Camera calibration
-- Image transformations
-
-It is designed for many Computer Vision applications beyond plant analysis.
-
-## PlantCV
-
-PlantCV is built on top of OpenCV.
-
-It provides high-level functions specifically designed for plant phenotyping and leaf analysis.
-
-Instead of implementing many image processing steps manually, PlantCV offers ready-to-use functions for common plant analysis tasks such as:
-
-- Reading images
-- Image segmentation
-- ROI extraction
-- Object analysis
-- Color histograms
-- Landmark extraction
-
-For the Leaffliction project, PlantCV significantly simplifies the implementation of plant-specific image processing pipelines.
-
----
-
-# 🚀 Project Progress
-
-## ✅ Image Loading
-
-The first step of any Computer Vision pipeline is loading the image.
-
-PlantCV provides the `readimage()` function:
-
-```python
-image, path, filename = pcv.readimage(image_path)
-```
-
-This function returns:
-
-- **image** → NumPy array containing the image pixels.
-- **path** → directory containing the image.
-- **filename** → image filename.
-
-The loaded image is represented internally as a three-dimensional NumPy array:
-
-```
-(height, width, channels)
-```
-
-Example:
-
-```
-(256, 256, 3)
-```
-
-where:
-
-- Height → number of rows.
-- Width → number of columns.
-- Channels → RGB color values.
-
-Each pixel contains three values representing its color.
-
-Example:
-
-```
-[119, 118, 122]
-```
-
----
-
-# 🌫️ Gaussian Blur
-
-Gaussian Blur is an image smoothing technique used to reduce noise and small image details before further processing.
-
-Instead of replacing each pixel with its original value, the algorithm computes a weighted average of neighboring pixels using a Gaussian kernel.
-
-Pixels closer to the center have greater influence than pixels farther away.
-
-Example of a 5×5 Gaussian kernel:
-
-```
-1   4   6   4   1
-4  16  24  16   4
-6  24  36  24   6
-4  16  24  16   4
-1   4   6   4   1
-```
-
-Implemented with PlantCV:
-
-```python
-gray = pcv.rgb2gray_lab(rgb_img=image, channel="l")
-blurred = pcv.gaussian_blur(
-    img=gray,
-    ksize=(5, 5),
-    sigma_x=0
-)
-```
-
-The blurred image removes small variations while preserving the overall structure of the leaf, making later processing steps more reliable.
-
----
-
-# 🎭 Mask Generation
-
-Once the image is smoothed, the leaf needs to be separated from the background. This is done through **binary thresholding**: every pixel above (or below) a chosen intensity becomes white (foreground), everything else becomes black (background).
-
-```python
-gray = pcv.rgb2gray_lab(rgb_img=image, channel="l")
-thresh = pcv.threshold.binary(
-    gray_img=gray,
-    threshold=115,
-    object_type="dark"
-)
-mask = pcv.fill(bin_img=thresh, size=200)
-```
-
-- `pcv.threshold.binary` converts the grayscale image into a black/white mask.
-- `pcv.fill` removes small noisy specks below a given pixel-area threshold, so only the actual leaf shape survives.
-
-The result is a clean binary mask isolating the leaf from its background, which every following step depends on.
-
----
-
-# 🟩 ROI Objects
-
-A **Region Of Interest (ROI)** defines the area of the image we actually care about. PlantCV compares the mask against the ROI and keeps only the objects that fall inside it, discarding background noise outside the region.
-
-```python
-roi = pcv.roi.rectangle(img=image, x=0, y=0, h=height, w=width)
-kept_mask = pcv.roi.filter(mask=mask, roi=roi, roi_type="partial")
-```
-
-This step guarantees that only the leaf (and not stray artifacts elsewhere in the frame) is passed on to the analysis steps.
-
----
-
-# 📐 Analyze Object
-
-`pcv.analyze.size` computes shape statistics on the segmented leaf — area, perimeter, convex hull, height/width, and more — and draws an overlay (outline + centroid + bounding lines) directly on the image.
-
-```python
-shape_image = pcv.analyze.size(
-    img=image,
-    labeled_mask=kept_mask,
-    n_labels=1
-)
-```
-
-These measurements are the kind of quantitative shape features that can later distinguish a diseased leaf (irregular, spotted edges) from a healthy one.
-
----
-
-# 📍 Pseudolandmarks
-
-Pseudolandmarks are evenly-spaced reference points placed along the leaf's top, bottom, and center vertical axis. They give a consistent, comparable set of coordinates across every leaf image regardless of size or orientation.
-
-```python
-top, bottom, center_v = pcv.homology.x_axis_pseudolandmarks(
-    img=image,
-    mask=kept_mask,
-    label="default"
-)
-```
-
-These points are useful for shape comparison and alignment between leaves of the same or different classes.
-
----
-
-# 🎨 Color Histogram
-
-The color histogram shows how pixel intensities are distributed across multiple color spaces (RGB, HSV, LAB) for the segmented leaf.
-
-```python
-pcv.analyze.color(
-    rgb_img=image,
-    labeled_mask=kept_mask,
-    colorspaces="all"
-)
-```
-
-Each channel — red, green, blue, hue, saturation, value, lightness, green-magenta, blue-yellow — is plotted as a percentage of pixels at each intensity value (0–255). Differences in these distributions (e.g. a spike in brown/yellow tones) are strong signals for disease detection.
-
----
-
-# ✅ Project Progress
-
-- [x] Read image
-- [x] Gaussian Blur
-- [x] Mask Generation
-- [x] ROI Extraction
-- [x] Analyze Object
-- [x] Pseudolandmarks
-- [x] Color Histogram
-
----
-
-# 🛠️ Usage
-
-Single image (displays all transformations + saves the grid and histogram next to the image):
+# Leaffliction
+
+## 1. Project overview
+
+Leaffliction is a 42 school computer vision project that classifies leaf
+diseases from images. The pipeline has five steps: analyse the class
+distribution of a dataset, augment images, extract plant features with
+PlantCV transformations, train a classifier, and predict the disease class of
+a single leaf image. Feature extraction relies on a leaf mask (PlantCV
+thresholding), color statistics in RGB/HSV/LAB, and mask area. The classifier
+is a scikit-learn `RandomForestClassifier`.
+
+## 2. Requirements and setup
+
+- Python 3.11 or newer. The pinned `numpy==2.4.6` and `pandas==3.0.6` require
+  3.11+; the project was developed with Python 3.14.
+- Install:
 
 ```bash
-python3 main.py path/to/image.JPG
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Batch mode (processes every image in a source directory, saves outputs into a destination directory):
+Direct dependencies, as found in the imports:
+
+| Package | Used by |
+| --- | --- |
+| `opencv-python` (`cv2`) | all programs |
+| `matplotlib` | Distribution, Augmentation, Transformation, predict |
+| `numpy` | Augmentation, Transformation, train, predict |
+| `plantcv` | Transformation (and train/predict through it) |
+| `scikit-learn` | train, predict (RandomForest, StandardScaler, split, accuracy) |
+
+The standard library covers the rest (`argparse`, `pickle`, `json`,
+`zipfile`, `multiprocessing`, `shutil`, `re`). `requirements.txt` is a full
+`pip freeze` and also contains transitive packages and `flake8`.
+
+## 3. Project structure
+
+```
+.
+├── Distribution.py       # Pie + bar chart of images per class
+├── Augmentation.py       # 6 augmentations of one image; exports transform_registry
+├── balance_dataset.py    # Balances every class by generating augmented images
+├── clean_augmented.py    # Deletes augmented images (files ending in _<Transform>[N])
+├── Transformation.py     # PlantCV transformations: display, batch, and helpers for the model
+├── train.py              # Feature extraction, RandomForest training, writes learnings/ and learnings.zip
+├── predict.py            # Predicts the class of one image from learnings/
+├── requirements.txt      # Pinned dependencies
+├── .gitignore
+└── README.md
+```
+
+Git-ignored (see `.gitignore`):
+
+| Path | Content |
+| --- | --- |
+| `images/`, `leaves/` | Dataset directories |
+| `dst_directory/` | Output of batch `Transformation` |
+| `learnings/`, `learnings.zip` | Trained model plus a copy of the dataset |
+| `.venv/`, `venv/`, `env/`, `__pycache__/`, `.DS_Store`, `test.py` | Local environment and scratch files |
+
+The subject forbids turning in the dataset, so every directory that holds
+dataset images, including the zip that embeds them, must stay out of git.
+`balance_dataset.py` writes to `augmented_directory/` next to the dataset
+directory it was given. That path is only ignored if the dataset lives under
+`images/` or `leaves/`.
+
+## 4. Usage
+
+Examples assume the dataset is at `images/Apple/`, with one subdirectory per
+class (for example `apple_healthy/`, `apple_black_rot/`).
+
+### Distribution
 
 ```bash
-python3 Transformation.py -src Apple/apple_healthy/ -dst dst_directory
-python3 Transformation.py -src Apple/apple_healthy/ -dst dst_directory -mask -blur
+python3 Distribution.py images/Apple
 ```
 
-If no transformation flags are passed in batch mode, all transformations are generated by default.
+Counts `.jpg`/`.jpeg`/`.png` files in each class subdirectory and opens a
+matplotlib window with a pie chart (percentages) and a bar chart (counts).
+Exits with `Error: ...` if the path is missing, is not a directory, has no
+subdirectories, or no images.
+
+### Augmentation (single image)
+
+```bash
+python3 Augmentation.py "images/Apple/apple_healthy/image (1).JPG"
+```
+
+Writes six files next to the source image and displays the original plus the
+six results in one window:
+
+```
+image (1)_Flip.JPG
+image (1)_Rotate.JPG
+image (1)_Skew.JPG
+image (1)_Shear.JPG
+image (1)_Crop.JPG
+image (1)_Distortion.JPG
+```
+
+Rotation angle is random in [-25, 25] degrees. Augmentation has no flags.
+
+### Dataset balancing
+
+Balancing is a separate script, not an option of `Augmentation.py`:
+
+```bash
+python3 balance_dataset.py images/Apple
+```
+
+Example output:
+
+```
+Building balanced dataset in images/augmented_directory/Apple
+apple_black_rot: generating 1500 images (621 -> 2121)
+apple_healthy: already balanced (2121)
+```
+
+Behavior:
+
+- Copies the original images of every class into
+  `<dataset parent>/augmented_directory/<dataset name>/<class>/`. The source
+  dataset is not modified.
+- The target size is the largest class's original count.
+- Smaller classes receive augmented images until they reach the target.
+  Output names follow `<stem>_<Transform>[N]<ext>` (`_Flip`, `_Flip2`, ...).
+- The random seed is 42 (`balance_dataset(root, seed=42)`); the command line
+  does not expose it.
+
+To remove augmented images (any file whose stem ends in
+`_Flip|_Rotate|_Skew|_Shear|_Crop|_Distortion` with an optional number),
+recursively:
+
+```bash
+python3 clean_augmented.py images/augmented_directory/Apple
+```
+
+### Transformation
+
+Display mode (one image, no files written):
+
+```bash
+python3 Transformation.py "images/Apple/apple_healthy/image (1).JPG"
+```
+
+Opens one window with Original, Gaussian blur, Mask, Roi objects, Analyze
+object and Pseudolandmarks, then a second window with the color histogram.
+
+Batch mode (every `.jpg`/`.jpeg`/`.png` directly inside `-src`, not recursive):
+
+```bash
+python3 Transformation.py -src images/Apple/apple_healthy -dst dst_directory
+python3 Transformation.py -src images/Apple/apple_healthy -dst dst_directory -mask -blur
+```
+
+Flags: `-blur`, `-mask`, `-roi`, `-analyze`, `-landmarks`, `-hist`. With none
+of them, all six outputs are written. Output files:
+
+```
+dst_directory/<name>_Gaussian_blur.<ext>
+dst_directory/<name>_Mask.<ext>
+dst_directory/<name>_Roi_objects.<ext>
+dst_directory/<name>_Analyze_object.<ext>
+dst_directory/<name>_Pseudolandmarks.<ext>
+dst_directory/<name>_histogram.png
+```
+
+Console output: `Processed <file>` per image, `Skipped <file>: <reason>` on
+failure, then `Done. Transformations saved in dst_directory`.
+
+### train
+
+```bash
+python3 train.py images/augmented_directory/Apple
+python3 train.py images/augmented_directory/Apple -out learnings -workers 4
+```
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `directory` | required | Root with one subdirectory per class |
+| `-out` | `learnings` | Output directory |
+| `-workers` | `cpu_count() - 1` | Processes used for feature extraction |
+
+Example output:
+
+```
+Found 8 classes: ['apple_black_rot', ...]
+Found 16968 images total. Extracting features
+Extracted features for 16968 images.
+Train: 13575  Val: 3393
+Validation accuracy: <value>%  (n=3393)
+Saved model + dataset to learnings/, zipped as learnings.zip
+```
+
+(The numbers above are illustrative, not measured.) Details:
+
+- Features (20 values): mean and standard deviation of each channel of the
+  masked image in BGR, HSV and LAB, over foreground pixels, plus mask area and
+  area ratio.
+- Features are standardized (`StandardScaler`) and fed to a
+  `RandomForestClassifier(n_estimators=300)`.
+- Validation size is `max(20% of images, 100)`, stratified, `random_state=42`.
+  The script exits with an error if that is not smaller than the dataset.
+- Prints a warning if validation accuracy is below 90%, but still saves.
+- `learnings/` contains `model.pkl`, `class_names.json`, `metrics.json` and a
+  full copy of the dataset in `learnings/dataset/`. `learnings.zip` is built
+  from that directory (relative to the current directory).
+
+### predict
+
+```bash
+python3 predict.py "images/Apple/apple_healthy/image (1).JPG"
+python3 predict.py "images/Apple/apple_healthy/image (1).JPG" -learnings learnings
+```
+
+Example output:
+
+```
+Class predicted : apple_healthy  (97.3%)
+```
+
+Also opens a window with the original and masked image. (Confidence value is
+illustrative.)
+
+## 5. Pipeline
+
+Run from the repository root, in this order:
+
+```bash
+# 1. Inspect class imbalance
+python3 Distribution.py images/Apple
+
+# 2. (optional) Look at the augmentations of one image
+#    Warning: this writes files into the dataset directory
+python3 Augmentation.py "images/Apple/apple_healthy/image (1).JPG"
+
+# 3. Build the balanced dataset in images/augmented_directory/Apple
+python3 balance_dataset.py images/Apple
+
+# 4. (optional) Check the balanced distribution
+python3 Distribution.py images/augmented_directory/Apple
+
+# 5. (optional) Look at the transformations
+python3 Transformation.py "images/Apple/apple_healthy/image (1).JPG"
+python3 Transformation.py -src images/Apple/apple_healthy -dst dst_directory
+
+# 6. Train; produces learnings/ and learnings.zip
+python3 train.py images/augmented_directory/Apple
+
+# 7. Predict
+python3 predict.py "images/Apple/apple_healthy/image (1).JPG"
+```
+
+If step 2 was run on an original image, remove the generated files before
+step 3, otherwise they are treated as augmentations and excluded
+(`clean_augmented.py images/Apple` removes them).
+
+## 6. Team split and ownership
+
+Ownership as confirmed by the team (two contributors). `git log` shows the balancing scripts committed under kaoutharrr.
+
+| Part | Files | Author |
+| --- | --- | --- |
+| 1. Distribution | `Distribution.py` | belmqadem |
+| 2. Augmentation | `Augmentation.py` (6 transforms and registry) | belmqadem |
+| 3. Transformation | `Transformation.py` | kaoutharrr |
+| 2/4. Balancing and cleaning | `balance_dataset.py`, `clean_augmented.py` | belmqadem |
+| 4. Classification | `train.py`, `predict.py` | kaoutharrr |
+
+## 7. Submission checklist
+
+- [ ] Build `directory.zip` containing the dataset and `learnings/`
+      (`train.py` already produces `learnings.zip` with both).
+- [ ] Compute the hash:
+
+```bash
+sha1sum directory.zip
+```
+
+- [ ] Put the hash in `signature.txt` (one line, nothing else).
+- [ ] Run `git status` and confirm that no dataset file (`images/`, `Apple/`,
+      `augmented_directory/`, `learnings/`, any `.zip`) is staged or
+      untracked-but-addable.
+- [ ] Confirm the validation set has at least 100 images and accuracy above
+      90%: check the `Train: ... Val: ...` and `Validation accuracy` lines of
+      `train.py`, or `learnings/metrics.json`.
+
+## 8. Design decisions
+
+Only decisions the code implements are listed.
+
+- **Originals are filtered during balancing (idempotency).**
+  `balance_dataset.py` identifies augmented files by the regex
+  `_(Flip|Rotate|Skew|Shear|Crop|Distortion)\d*$` on the file stem. Only
+  non-matching files count as originals and are used as augmentation sources.
+  The generation deficit is computed from the existing total and generated
+  files are never overwritten, so re-running the script does not re-augment
+  augmented images or keep growing the classes. The same regex is reused by
+  `clean_augmented.py`.
+- **Transforms are dispatched through a registry.** `transform_registry` in
+  `Augmentation.py` maps names to functions. `Augmentation.py` iterates it for
+  display, `balance_dataset.py` builds its (image, transform) combinations
+  from it, and the file-name regex is generated from its keys, so adding a
+  transform in one place updates all three.
+- **The seed is a parameter of balancing.** `balance_dataset(root, seed=42)`
+  seeds `random` so the choice and order of (image, transform) pairs is
+  reproducible. It is not a command line option, and `Rotate` angles are only
+  reproducible when going through that function. `train.py` uses fixed
+  constants (`SEED = 42`) for the split and the forest.
+- **Not implemented: splitting before augmentation.** `train.py` splits
+  after balancing, on the already augmented directory, so augmented variants
+  of one original can land in both the training and validation sets. The
+  split is stratified but not grouped by source image.

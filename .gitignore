@@ -22,3 +22,8 @@ learnings.zip
 learnings/
 learnings/*
 test.py
+
+# dataset copies, balanced output, and the turn-in archive
+augmented_directory/
+directory.zip
+*.zip
