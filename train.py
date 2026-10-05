@@ -26,10 +26,8 @@ MIN_VAL_IMAGES = 100
 
 
 def list_class_dirs(root):
-    return sorted(
-        d for d in os.listdir(root)
-        if os.path.isdir(os.path.join(root, d))
-    )
+    return sorted(d for d in os.listdir(root)
+                  if os.path.isdir(os.path.join(root, d)))
 
 
 def collect_images(root, class_dirs):
@@ -135,10 +133,7 @@ def main():
     print(f"Found {len(class_dirs)} classes: {class_dirs}")
 
     samples = collect_images(args.directory, class_dirs)
-    print(
-        f"Found {len(samples)} images total. Extracting features with "
-        f"{args.workers} worker(s)..."
-    )
+    print(f"Found {len(samples)} images total. Extracting features")
 
     X, labels = build_dataset(samples, args.workers)
     print(f"Extracted features for {len(X)} images.")
@@ -190,4 +185,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) < 2:
+        print("Usage: ./train.py <path_to_dataset_root> \
+              -out <output_directory> -workers <workers_number> ")
+        sys.exit(1)
+    try:
+        main()
+    except (FileNotFoundError, NotADirectoryError, ValueError) as e:
+        print(f"Error: {e}")
+        sys.exit(1)

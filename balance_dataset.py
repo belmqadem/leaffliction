@@ -5,18 +5,19 @@ import re
 import shutil
 import sys
 from pathlib import Path
+from Augmentation import transform_registry
+from Distribution import IMG_EXTS
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from Augmentation import transform_registry
-from Distribution import IMG_EXTS
 
 # matches "_Flip", "_Flip2", "_Rotate", "_Rotate3", etc. at the end of the stem
 AUGMENT_STEM_RE = re.compile(rf"_({'|'.join(transform_registry)})\d*$")
 
 
 def is_original_image(f: Path) -> bool:
-    return f.is_file() and f.suffix in IMG_EXTS and not AUGMENT_STEM_RE.search(f.stem)
+    return f.is_file() and f.suffix in IMG_EXTS \
+        and not AUGMENT_STEM_RE.search(f.stem)
 
 
 def balance_dataset(root_str: str, seed: int = 42) -> None:
@@ -48,7 +49,8 @@ def balance_dataset(root_str: str, seed: int = 42) -> None:
         copy_dirs.append(dst_dir)
 
     class_originals = {
-        d: sorted([f for f in d.iterdir() if is_original_image(f)]) for d in copy_dirs
+        d: sorted([f for f in d.iterdir() if is_original_image(f)])
+        for d in copy_dirs
     }
     class_totals = {
         d: sum(1 for f in d.iterdir() if f.is_file() and f.suffix in IMG_EXTS)
@@ -82,10 +84,7 @@ def balance_dataset(root_str: str, seed: int = 42) -> None:
         random.shuffle(combos)
 
         generated = 0
-        combo_iter = itertools.cycle(combos)  # wrap around if deficit > len(combos)
-        # how many times each (image, transform) pair has been used, so a
-        # repeat past the first pass gets its own numbered tag/filename
-        # instead of colliding with (and overwriting) the first one
+        combo_iter = itertools.cycle(combos)
         uses = {}
 
         while generated < deficit:

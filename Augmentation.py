@@ -66,7 +66,7 @@ def crop_img(path: Path, tag: str = "Crop"):
         raise ValueError(f"Could not read image: {path}")
     h, w = img.shape[:2]
     margin_h, margin_w = int(h * 0.1), int(w * 0.1)
-    cropped_img = img[margin_h : h - margin_h, margin_w : w - margin_w]
+    cropped_img = img[margin_h: h - margin_h, margin_w: w - margin_w]
     cropped_img_name = f"{path.stem}_{tag}{path.suffix}"
     cv2.imwrite(path.with_name(cropped_img_name), cropped_img)
     return cropped_img

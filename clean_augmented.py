@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 import sys
 from pathlib import Path
+from balance_dataset import AUGMENT_STEM_RE
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from balance_dataset import AUGMENT_STEM_RE
 
 
 def is_augmented(path: Path) -> bool:

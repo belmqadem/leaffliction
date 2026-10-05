@@ -7,14 +7,13 @@ import pickle
 import sys
 
 import cv2
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
 from Transformation import build_mask, apply_mask
 from train import extract_features
 
-matplotlib.use("Agg")
+# matplotlib.use("Agg")
 
 
 def load_model(learnings_dir):
@@ -27,9 +26,8 @@ def load_model(learnings_dir):
 
 def main():
     parser = argparse.ArgumentParser(
-        description=(
-            "Leaffliction — predict a leaf's disease class (Part 4, sklearn)."
-        )
+        description=("Leaffliction — predict a leaf's disease \
+                     class (Part 4, sklearn).")
     )
     parser.add_argument("image", help="Path to a leaf image.")
     parser.add_argument(
@@ -40,7 +38,7 @@ def main():
     )
     args = parser.parse_args()
 
-    clf, scaler, class_names = load_model(args.learnings_dir)
+    clf, scaler, _ = load_model(args.learnings_dir)
 
     original = cv2.imread(args.image)
     if original is None:
@@ -69,11 +67,7 @@ def main():
     axes[1].axis("off")
     fig.suptitle(f"Class predicted : {predicted_class}")
     fig.tight_layout()
-
-    out_dir = os.path.dirname(os.path.abspath(args.image)) or "."
-    out_path = os.path.join(out_dir, "prediction.png")
-    fig.savefig(out_path, dpi=120)
-    print(f"Saved prediction figure to {out_path}")
+    plt.show()
 
 
 if __name__ == "__main__":

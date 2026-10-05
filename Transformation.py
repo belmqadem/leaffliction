@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 
+from pathlib import Path
 import argparse
 import os
 import sys
-
 import cv2
 import numpy as np
-# import matplotlib
-# matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-
 from plantcv import plantcv as pcv
 
 pcv.params.debug = None
 
 
-def read_image(path):
+def read_image(path: str):
+    img_path = Path(path)
+    if not img_path.exists():
+        raise FileNotFoundError(f"{path} does not exist")
+    if not img_path.is_file():
+        raise IsADirectoryError(f"{path} is a directory, not a file.")
+
     img, _, _ = pcv.readimage(filename=path)
     return img
 
@@ -217,41 +220,6 @@ def show_single_image(path):
     except RuntimeError as exc:
         print(f"Color histogram skipped: {exc}")
 
-# def show_single_image(path):
-#     img = read_image(path)
-#     results = compute_all(img)
-#     mask_for_hist = results.pop("_mask_for_hist")
-
-#     names = list(results.keys())
-#     n = len(names)
-#     cols = 3
-#     rows = (n + cols - 1) // cols
-
-#     fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows))
-#     axes = np.array(axes).reshape(-1)
-#     for ax, name in zip(axes, names):
-#         im = results[name]
-#         im_rgb = cv2.cvtColor(im, cv2.COLOR_BGR2RGB) if im.ndim == 3 else im
-#         cmap = None if im.ndim == 3 else "gray"
-#         ax.imshow(im_rgb, cmap=cmap)
-#         ax.set_title(name.replace("_", " "))
-#         ax.axis("off")
-#     for ax in axes[n:]:
-#         ax.axis("off")
-#     fig.tight_layout()
-
-#     out_dir = os.path.dirname(os.path.abspath(path)) or "."
-#     grid_path = os.path.join(out_dir, "transformation_grid.png")
-#     fig.savefig(grid_path, dpi=120)
-#     print(f"Saved transformation grid to {grid_path}")
-
-#     hist_path = os.path.join(out_dir, "transformation_histogram.png")
-#     try:
-#         color_histogram_figure(img, mask_for_hist, save_path=hist_path)
-#         print(f"Saved color histogram to {hist_path}")
-#     except RuntimeError as exc:
-#         print(f"Color histogram skipped: {exc}")
-
 
 def save_batch(src_dir, dst_dir, flags):
     os.makedirs(dst_dir, exist_ok=True)
@@ -340,20 +308,24 @@ def main():
 
     args = parser.parse_args()
 
-    if args.src and args.dst:
-        flags = {
-            "blur": args.blur,
-            "mask": args.mask,
-            "roi": args.roi,
-            "analyze": args.analyze,
-            "landmarks": args.landmarks,
-            "hist": args.hist,
-        }
-        save_batch(args.src, args.dst, flags)
-    elif args.image:
-        show_single_image(args.image)
-    else:
-        parser.print_help()
+    try:
+        if args.src and args.dst:
+            flags = {
+                "blur": args.blur,
+                "mask": args.mask,
+                "roi": args.roi,
+                "analyze": args.analyze,
+                "landmarks": args.landmarks,
+                "hist": args.hist,
+            }
+            save_batch(args.src, args.dst, flags)
+        elif args.image:
+            show_single_image(args.image)
+        else:
+            parser.print_help()
+            sys.exit(1)
+    except (FileNotFoundError, IsADirectoryError, ValueError) as e:
+        print(f"Error: {e}")
         sys.exit(1)
 
 
