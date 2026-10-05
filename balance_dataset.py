@@ -106,7 +106,7 @@ def balance_dataset(root_str: str, seed: int = 42) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: ./utils/balance_dataset.py <path_to_dataset_root>")
+        print("Usage: ./balance_dataset.py <path_to_dataset_root>")
         sys.exit(1)
     try:
         balance_dataset(sys.argv[1])

@@ -27,7 +27,7 @@ def clean(path_str: str) -> int:
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: ./utils/clean_augmented.py <path_to_dataset_root>")
+        print("Usage: ./clean_augmented.py <path_to_dataset_root>")
         sys.exit(1)
     try:
         removed = clean(sys.argv[1])
