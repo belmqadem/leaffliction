@@ -58,14 +58,17 @@ Git-ignored (see `.gitignore`):
 | --- | --- |
 | `images/`, `leaves/` | Dataset directories |
 | `dst_directory/` | Output of batch `Transformation` |
-| `learnings/`, `learnings.zip` | Trained model plus a copy of the dataset |
+| `augmented_directory/` | Balanced dataset written by `balance_dataset.py` |
+| `learnings/` | Trained model plus a copy of the dataset |
+| `*.zip` (`learnings.zip`, `directory.zip`) | Archives that embed the dataset |
 | `.venv/`, `venv/`, `env/`, `__pycache__/`, `.DS_Store`, `test.py` | Local environment and scratch files |
 
 The subject forbids turning in the dataset, so every directory that holds
 dataset images, including the zip that embeds them, must stay out of git.
 `balance_dataset.py` writes to `augmented_directory/` next to the dataset
-directory it was given. That path is only ignored if the dataset lives under
-`images/` or `leaves/`.
+directory it was given. It is ignored by its own `.gitignore` entry as well as
+when the dataset lives under `images/` or `leaves/`. `signature.txt` is the
+only non-code file that should be committed.
 
 ## 4. Usage
 
@@ -156,6 +159,10 @@ python3 Transformation.py -src images/Apple/apple_healthy -dst dst_directory
 python3 Transformation.py -src images/Apple/apple_healthy -dst dst_directory -mask -blur
 ```
 
+`-src` and `-dst` must be given together and cannot be combined with an image
+path. The two directories must differ. Flags given in display mode are ignored
+with a warning.
+
 Flags: `-blur`, `-mask`, `-roi`, `-analyze`, `-landmarks`, `-hist`. With none
 of them, all six outputs are written. Output files:
 
@@ -182,7 +189,10 @@ python3 train.py images/augmented_directory/Apple -out learnings -workers 4
 | --- | --- | --- |
 | `directory` | required | Root with one subdirectory per class |
 | `-out` | `learnings` | Output directory |
-| `-workers` | `cpu_count() - 1` | Processes used for feature extraction |
+| `-workers` | `cpu_count() - 1` | Processes used for feature extraction (at least 1) |
+
+`-out` must not be the dataset directory, a path inside it, or `.`. A trailing
+slash is ignored.
 
 Example output:
 
