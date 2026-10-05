@@ -10,9 +10,15 @@ env/
 .DS_Store
 
 images/
+images/*
 leaves/
 leaves/*
 leaves/images/
 dst_directory/*
 dst_directory/
 dst_directory
+test.py
+learnings.zip
+learnings/
+learnings/*
+test.py
