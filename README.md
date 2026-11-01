@@ -280,24 +280,6 @@ Ownership as confirmed by the team (two contributors). `git log` shows the balan
 | 2/4. Balancing and cleaning | `balance_dataset.py`, `clean_augmented.py` | belmqadem |
 | 4. Classification | `train.py`, `predict.py` | kaoutharrr |
 
-## 7. Submission checklist
-
-- [ ] Build `directory.zip` containing the dataset and `learnings/`
-      (`train.py` already produces `learnings.zip` with both).
-- [ ] Compute the hash:
-
-```bash
-sha1sum directory.zip
-```
-
-- [ ] Put the hash in `signature.txt` (one line, nothing else).
-- [ ] Run `git status` and confirm that no dataset file (`images/`, `Apple/`,
-      `augmented_directory/`, `learnings/`, any `.zip`) is staged or
-      untracked-but-addable.
-- [ ] Confirm the validation set has at least 100 images and accuracy above
-      90%: check the `Train: ... Val: ...` and `Validation accuracy` lines of
-      `train.py`, or `learnings/metrics.json`.
-
 ## 8. Design decisions
 
 Only decisions the code implements are listed.
